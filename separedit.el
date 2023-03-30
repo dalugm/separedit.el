@@ -359,6 +359,7 @@
 
 (declare-function org-edit-special "org")
 (declare-function markdown-edit-code-block "markdown-mode")
+(declare-function c-indent-region "cc-cmds")
 
 (defcustom separedit-default-mode 'fundamental-mode
   "Default mode for editing comment or docstring file."
@@ -773,8 +774,8 @@ Each item may be one of the following forms:
                ;; Package-Commit: 0d4ef4794655a2a3c5324e07eef46dc4766ad65d
                (memq (face-at-point) '(font-lock-doc-face region))
              (memq (face-at-point) '(font-lock-doc-face)))
-           (not (or (looking-back "^\s+\"\\{3\\}")               ;; end of doc
-                    (and (looking-back "@\\(?:module\\)?doc\s+") ;; beg of doc
+           (not (or (looking-back "^\s+\"\\{3\\}" nil) ;; end of doc
+                    (and (looking-back "@\\(?:module\\)?doc\s+" nil) ;; beg of doc
                          (looking-at "\"\\{3\\}$")))))
       (and (derived-mode-p 'perl-mode)
            (memq (face-at-point) '(perl-heredoc))
@@ -1177,8 +1178,9 @@ If MODE is nil, use ‘major-mode’."
 (defun separedit--code-block-beginning (&optional comment-delimiter block-regexp-plists)
   "Return code block info containing ‘:beginning’.
 
-Search process will skip characters COMMENT-DELIMITER at beginning of each line.
-If BLOCK-REGEXP-PLISTS non-nil, use it instead of `separedit-block-regexp-plists'."
+Search process will skip characters COMMENT-DELIMITER at
+beginning of each line.  If BLOCK-REGEXP-PLISTS non-nil, use it
+instead of `separedit-block-regexp-plists'."
   (let* ((block-regexp-plists
           (or block-regexp-plists
               (--filter
@@ -1541,6 +1543,8 @@ Block info example:
 
 ;;; Help/helpful mode variables / funcstions
 
+(declare-function helpful-update "helpful")
+
 (defvar separedit-described-global-value-prompt-regexp
   "^Local in buffer \\([^;]+\\); global value is[\s\n]?"
   "Regexp to match the prompt of global value.")
@@ -1585,7 +1589,8 @@ Block info example:
 (defun separedit-help-variable-edit-info ()
   "Return help varible edit info at point.
 
-Each element is in the form of (SYMBOL VALUE-BOUND QUOTE-CHAR SCOPE LOCAL-BUFFER)."
+Each element is in the form of
+(SYMBOL VALUE-BOUND QUOTE-CHAR SCOPE LOCAL-BUFFER)."
   (unless (eq major-mode 'help-mode)
     (user-error "Not in help buffer"))
   (let* ((symbol (separedit-described-symbol))
@@ -1614,7 +1619,8 @@ Each element is in the form of (SYMBOL VALUE-BOUND QUOTE-CHAR SCOPE LOCAL-BUFFER
       `(,symbol ,@bound ,@scope-buffer))))
 
 (defun separedit-helpful-variable-edit-info ()
-  "Return helpful variable edit info (symbol value-bound type local-buffer) at point."
+  "Return helpful variable edit info (symbol value-bound type
+local-buffer) at point."
   (unless (eq major-mode 'helpful-mode)
     (user-error "Not in help buffer"))
   (let* ((symbol (separedit-described-symbol))
@@ -1651,7 +1657,8 @@ It will override by the key that `separedit' binding in source buffer.")
 (make-variable-buffer-local 'separedit--mode-history)
 
 (defun separedit--entry-key ()
-  "Return `separedit-entry-key' or the key that `separedit' binding in source buffer."
+  "Return `separedit-entry-key' or the key that `separedit' binding
+in source buffer."
   (or (car (where-is-internal
             'separedit-cl
             overriding-local-map))
@@ -1937,7 +1944,7 @@ MAX-WIDTH       maximum width that can be removed"
                             (rx-to-string `(= ,match-len "\\")))
                     1))
           (let ((del-len (- match-len (1- (math-pow 2 (1- num))))))
-            (backward-delete-char del-len)
+            (delete-char (- del-len))
             (throw 'break nil)))))))
 
 (defun separedit--remove-nested-escape-sq ()
@@ -1948,7 +1955,7 @@ MAX-WIDTH       maximum width that can be removed"
         (when (and (< 0 match-len)
                    (looking-back (eval `(rx (not (any "\\")) (= ,match-len "\\"))) 1))
           (let ((del-len (- match-len (1- (math-pow 2 (1- num))))))
-            (backward-delete-char del-len)
+            (delete-char (- del-len))
             (throw 'break nil)))))))
 
 (defun separedit--remove-escape (quotes-char)
@@ -2116,6 +2123,7 @@ If you just want to check `major-mode', use `derived-mode-p'."
 (declare-function vterm-insert "vterm")
 (declare-function vterm-copy-mode "vterm")
 (declare-function vterm--get-prompt-point "vterm")
+(declare-function vterm-send "vterm")
 
 (defun separedit--vterm-replace-match (newtext &optional _ _ _ _)
   "Insert NEWTEXT to vterm.
